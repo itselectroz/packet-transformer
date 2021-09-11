@@ -1,4 +1,4 @@
-import { RegisterPacket, Packet, uint32, cuint } from '../packet';
+import { RegisterPacket, Packet, uint32, cuint, vector } from '../packet';
 
 RegisterPacket("HELLO")
 export class HelloPacket extends Packet {
@@ -6,4 +6,6 @@ export class HelloPacket extends Packet {
     name: string = "";
 
     hash: cuint = -1;
+
+    values: vector<cuint, cuint> = [];
 }

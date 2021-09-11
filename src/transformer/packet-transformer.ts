@@ -17,6 +17,12 @@ function logNode(node: ts.Node, origin: string) {
     }
 }
 
+type VectorData = {
+    valueType: string;
+    lengthType: string;
+    lengthField: boolean;
+}
+
 type Property = {
     name: string;
     type: string;
@@ -87,11 +93,65 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
                         });
                         break;
                     case ts.SyntaxKind.TypeReference:
-                        const typeNameNode = <ts.Identifier>(<ts.TypeReferenceNode>typeNode).typeName;
+                        const typeReferenceNode = <ts.TypeReferenceNode>typeNode;
+                        const typeNameNode = <ts.Identifier>(typeReferenceNode).typeName;
                         const type = typeNameNode.escapedText.toString();
                             
                         if(type == "vector") {
+                            const typeArguments = typeReferenceNode.typeArguments;
+                            if(!typeArguments || typeArguments.length != 2) {
+                                break;
+                            }
 
+                            const vectorData: VectorData = {
+                                valueType: "",
+                                lengthField: false,
+                                lengthType: ""
+                            };
+
+                            // First type is value type, only accept typereference or string
+                            const valueType = typeArguments[0];
+                            if(valueType.kind == ts.SyntaxKind.StringKeyword) {
+                                vectorData.valueType = "string";
+                            }
+                            else if(valueType.kind == ts.SyntaxKind.TypeReference) {
+                                const typeIdentifier = <ts.Identifier>(<ts.TypeReferenceNode>valueType).typeName;
+                                vectorData.valueType = typeIdentifier.escapedText.toString();
+                            }
+                            else {
+                                throw new SyntaxError(`Expected StringKeyword or TypeReference, got SyntaxKind.${ts.SyntaxKind[valueType.kind]}`);
+                            }
+
+                            // Second type is length type/field
+                            const lengthType = typeArguments[1];
+                            if(lengthType.kind == ts.SyntaxKind.StringKeyword) {
+                                vectorData.lengthField = false;
+                                vectorData.lengthType = "string";
+                            }
+                            else if(lengthType.kind == ts.SyntaxKind.TypeReference) {
+                                const typeIdentifier = <ts.Identifier>(<ts.TypeReferenceNode>lengthType).typeName;
+                                vectorData.lengthType = typeIdentifier.escapedText.toString();
+                                vectorData.lengthField = false;
+                            }
+                            else if(lengthType.kind == ts.SyntaxKind.LiteralType) {
+                                const literalNode = <ts.LiteralTypeNode>lengthType;
+                                const literal = literalNode.literal;
+                                if(literal.kind != ts.SyntaxKind.StringLiteral) {
+                                    throw new SyntaxError(`Expected StringKeyword, TypeReference or StringLiteral, got SyntaxKind.${ts.SyntaxKind[valueType.kind]}`);
+                                }
+
+                                vectorData.lengthField = true;
+                                vectorData.lengthType = literal.text;
+                            }
+                            else {
+                                throw new SyntaxError(`Expected StringKeyword, TypeReference or StringLiteral, got SyntaxKind.${ts.SyntaxKind[valueType.kind]}`);
+                            }
+                            
+                            classData.properties.push({
+                                name,
+                                type,
+                                extraData: vectorData
+                            });
                         }
                         else {
                             classData.properties.push({
