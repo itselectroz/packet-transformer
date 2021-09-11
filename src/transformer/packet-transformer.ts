@@ -1,5 +1,6 @@
 import * as ts from 'typescript';
-import { createInitialiseArray, createReadForLoop, createReadFunction, createReadPacketField, createReadPacketFieldFromVariable, createReadVariable, createVariableFromField } from './statements';
+import { createInitialiseArray, createReadForLoop, createReadFunction, createReadPacketField, createReadPacketFieldFromVariable, createReadVariable, createVariableFromField } from './read-statements';
+import { createWriteField, createWriteFieldLength, createWriteFunction, createWriteVectorData, createWriteVectorDataFieldLength } from './write-statements';
 
 const logSettings: any = {
     all: true,
@@ -33,6 +34,35 @@ type Property = {
 type ClassData = {
     className: string;
     properties: Property[];
+}
+
+function getWriteFunctionName(type: string) : string {
+    switch (type) {
+        case "string":
+            return "writeUTFString";
+        case "int16":
+            return "writeInt16";
+        case "uint16":
+            return "writeUInt16";
+        case "int32":
+            return "writeInt32";
+        case "uint32":
+            return "writeUInt32";
+        case "cint":
+            return "writeCompressedInt";
+        case "cuint":
+            return "writeCompressedUInt";
+        case "cint3":
+            return "write3bitCompressedInt";
+        case "cuint3":
+            return "write3bitCompressedUInt";
+        case "float":
+            return "writeFloat";
+        case "boolean":
+            return "writeBoolean"
+        default:
+            throw new Error(`Cannot get function name for type ${type}`);
+    }
 }
 
 function getReadFunctionName(type: string) : string {
@@ -225,11 +255,14 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
                     // Generate expressions for functions
 
                     const readStatements: ts.Statement[] = [];
+                    const writeStatements: ts.Statement[] = [];
 
                     for (const property of classData.properties) {
                         switch (property.type) {
                             case "vector": {
                                 const vectorData: VectorData = property.extraData;
+
+                                // Create read statements
                                 readStatements.push(createInitialiseArray(property.name));
 
                                 const lengthVariable = `${property.name}Length`;
@@ -245,20 +278,30 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
 
                                 readStatements.push(createReadPacketFieldFromVariable(property.name, property.name));
 
+                                // Create write statements
+                                if(vectorData.lengthField) {
+                                    writeStatements.push(createWriteVectorDataFieldLength(property.name, vectorData.lengthType, getWriteFunctionName(vectorData.valueType)));
+                                }
+                                else {
+                                    writeStatements.push(createWriteFieldLength(property.name, getWriteFunctionName(vectorData.lengthType)));
+                                    writeStatements.push(createWriteVectorData(property.name, getWriteFunctionName(vectorData.valueType)));
+                                }
+
                                 break;
                             }
                             default:
-                                readStatements.push(createReadPacketField(property.name, getReadFunctionName(property.type)));
+                                writeStatements.push(createWriteField(property.name, getWriteFunctionName(property.type)));
                                 break;
                         }
                     }
 
-                    // Generate read function
+                    // Generate read/write functions
 
                     const readFunction = createReadFunction(classData.className, readStatements);
+                    const writeFunction = createWriteFunction(writeStatements);
 
                     const classDeclaration = <ts.ClassDeclaration>node;
-                    return ts.factory.updateClassDeclaration(classDeclaration, classDeclaration.decorators, classDeclaration.modifiers, classDeclaration.name, classDeclaration.typeParameters, classDeclaration.heritageClauses, [...classDeclaration.members, readFunction]);
+                    return ts.factory.updateClassDeclaration(classDeclaration, classDeclaration.decorators, classDeclaration.modifiers, classDeclaration.name, classDeclaration.typeParameters, classDeclaration.heritageClauses, [...classDeclaration.members, readFunction, writeFunction]);
             }
 
             return node;
