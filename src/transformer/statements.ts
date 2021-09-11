@@ -172,7 +172,7 @@ export function createReadPacketFieldFromVariable(fieldName: string, variableNam
         return packet;
     }
 */
-export function createReadFunction(className: string, expressions: ts.ExpressionStatement[]): ts.MethodDeclaration {
+export function createReadFunction(className: string, expressions: ts.Statement[]): ts.MethodDeclaration {
     return factory.createMethodDeclaration(
         undefined,
         [factory.createModifier(ts.SyntaxKind.StaticKeyword)],
