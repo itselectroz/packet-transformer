@@ -101,29 +101,6 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
             return sourceFile;
         }
 
-        // Visit expression nodes. We're looking for the RegisterPacket call here.
-        const expressionVisitor = (node: ts.Node): ts.Node => {
-            logNode(node, 'expression');
-            if (ts.isCallExpression(node)) {
-                const expression = <ts.Identifier>node.expression;
-                const args = node.arguments;
-
-                switch (expression.escapedText) {
-                    case "RegisterPacket": {
-                        if (args.length !== 1)
-                            break;
-
-                        const nameArg = <ts.LiteralToken>args[0];
-
-                        console.log(`Registering ${nameArg.text}`);
-
-                        return node;
-                    }
-                }
-            }
-            return ts.visitEachChild(node, expressionVisitor, context);
-        }
-
         // Visit class declaration. We're looking for field declarations
         const classVisitor = (classData: ClassData, node: ts.Node): ts.Node => {
             logNode(node, 'class');
@@ -239,10 +216,6 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
         const rootNodeVisitor = (node: ts.Node): ts.Node => {
             logNode(node, 'root');
             switch (node.kind) {
-                case ts.SyntaxKind.ExpressionStatement:
-                    ts.visitNode(node, expressionVisitor);
-                    break;
-
                 case ts.SyntaxKind.ClassDeclaration:
 
                     const classData: ClassData = {

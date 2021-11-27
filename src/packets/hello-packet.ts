@@ -1,6 +1,5 @@
 import { RegisterPacket, Packet, uint32, cuint, vector, uint16 } from '../packet';
 
-RegisterPacket("HELLO")
 export class HelloPacket extends Packet {
     userId: uint32 = -1;
     name: string = "";
@@ -12,3 +11,4 @@ export class HelloPacket extends Packet {
 
     taunts: vector<uint16, "numTaunts"> = [];
 }
+RegisterPacket("HELLO", HelloPacket);
