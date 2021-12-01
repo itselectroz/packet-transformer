@@ -2,13 +2,13 @@
   "name": "packet-transformer",
   "version": "1.0.0",
   "description": "Transform basic packet classes containing fields into more advanced packet classes with read/write capabilities. Simplifies the process of making and modifying packets.",
-  "main": "dist/main.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "ttsc && node dist/main.js",
-    "test": "ttsc && node dist/test.js"
+    "build": "tsc",
+    "test": "ttsc -p example/tsconfig.json && echo Go look at example/dist/packets/hello-packet.js to validate transformer did its job"
   },
   "author": "electroz",
-  "license": "ISC",
+  "license": "GPLv3",
   "devDependencies": {
     "@types/node": "^16.9.1",
     "ts-node": "^10.2.1",

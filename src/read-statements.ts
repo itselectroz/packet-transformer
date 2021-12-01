@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { createUniqueName } from './packet-transformer';
+import { createUniqueName } from '.';
 import { TypeData, VectorStatement, Constant, VectorData, Property } from './transformer-types';
 
 const factory = ts.factory;
