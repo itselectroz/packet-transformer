@@ -7,7 +7,8 @@ export class HelloPacket extends Packet {
     hash: cuint = -1;
     numTaunts: uint32 = -1;
 
-    values: vector<cuint, cuint> = [];
+    values: vector<vector<vector<uint32, uint16>, "test">, cuint> = [];
+    test: vector<uint32, uint16> = [];
 
     taunts: vector<uint16, "numTaunts"> = [];
 }

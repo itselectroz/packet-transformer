@@ -1,165 +1,271 @@
 import * as ts from 'typescript';
+import { createUniqueName } from './packet-transformer';
+import { TypeData, VectorStatement, Constant, VectorData, Property } from './transformer-types';
 
 const factory = ts.factory;
 
-// Full credits to https://ts-ast-viewer.com/ for the majority of this code. Complete lifesaver.
+// Credits to https://ts-ast-viewer.com/ for the help with this code. Complete lifesaver.
 
-// Sets a packet field to the result of a function call
-/*
-    packet.fieldName = data.functionName()
-*/
-export function createReadPacketField(fieldName: string, functionName: string): ts.ExpressionStatement {
-    return factory.createExpressionStatement(
-        factory.createBinaryExpression(
-            factory.createPropertyAccessExpression(
-                factory.createIdentifier("packet"),
-                factory.createIdentifier(fieldName)
-            ),
-            factory.createToken(ts.SyntaxKind.EqualsToken),
-            factory.createCallExpression(
+export function getReadFunctionName(type: string): string | false {
+    switch (type) {
+        case "string":
+            return "readUTFString";
+        case "int16":
+            return "readInt16";
+        case "uint16":
+            return "readUInt16";
+        case "int32":
+            return "readInt32";
+        case "uint32":
+            return "readUInt32";
+        case "cint":
+            return "readCompressedInt";
+        case "cuint":
+            return "readCompressedUInt";
+        case "cint3":
+            return "read3bitCompressedInt";
+        case "cuint3":
+            return "read3bitCompressedUInt";
+        case "float":
+            return "readFloat";
+        case "boolean":
+            return "readBoolean"
+        default:
+            return false;
+    }
+}
+
+const createReadType = (typeData: TypeData): ts.Expression | VectorStatement => {
+    const type = typeData.type;
+
+    switch (type) {
+        case "null": {
+            return factory.createNull();
+        }
+        case "constant": {
+            const constant = typeData.data as Constant;
+            switch (constant.type) {
+                case "boolean": {
+                    return constant.value
+                        ? factory.createTrue()
+                        : factory.createFalse();
+                }
+                case "string": {
+                    return factory.createStringLiteral(
+                        constant.value,
+                        constant.singleQuote
+                    )
+                }
+                case "number": {
+                    return factory.createNumericLiteral(constant.value)
+                }
+            }
+        }
+        case "vector": {
+            const vectorValuesIdentifier = createUniqueName("vectorValues");
+
+            const statements: ts.Statement[] = [
+                factory.createVariableStatement(
+                    undefined,
+                    factory.createVariableDeclarationList(
+                        [
+                            factory.createVariableDeclaration(
+                                vectorValuesIdentifier,
+                                undefined,
+                                undefined,
+                                factory.createArrayLiteralExpression(
+                                    [],
+                                    false
+                                )
+                            )
+                        ],
+                        ts.NodeFlags.Const
+                    )
+                )
+            ];
+
+            const vectorData: VectorData = typeData.data;
+
+            const lengthType = vectorData.lengthType;
+            const valueType = vectorData.valueType;
+
+            let lessThanExpression: ts.Expression;
+
+            if (lengthType.type == "constant") {
+                // Length is built into the for loop
+                const constant = lengthType.data as Constant;
+
+                if (constant.type == "string") {
+                    lessThanExpression = factory.createPropertyAccessExpression(
+                        factory.createIdentifier("packet"),
+                        constant.value
+                    );
+                }
+                else if (constant.type == "number") {
+                    lessThanExpression = factory.createNumericLiteral(constant.value)
+                }
+                else {
+                    throw new SyntaxError(`Expected string or number constant in vector length, got '${constant.type}'`);
+                }
+            }
+            else {
+                // Length is a variable
+                const vectorLengthIdentifier = createUniqueName("vectorLength");
+
+                statements.push(
+                    factory.createVariableStatement(
+                        undefined,
+                        factory.createVariableDeclarationList(
+                            [
+                                factory.createVariableDeclaration(
+                                    vectorLengthIdentifier,
+                                    undefined,
+                                    undefined,
+                                    createReadType(lengthType) as ts.Expression
+                                )
+                            ],
+                            ts.NodeFlags.Const
+                        )
+                    )
+                )
+
+                lessThanExpression = vectorLengthIdentifier;
+            }
+
+            const uniqueIndexName = createUniqueName("i");
+
+            const valueStatements: ts.Statement[] = [];
+
+            if (["vector"].includes(valueType.type)) {
+                const vectorStatement = createReadType(valueType) as VectorStatement;
+
+                valueStatements.push(
+                    ...vectorStatement.statements,
+                    factory.createExpressionStatement(
+                        factory.createBinaryExpression(
+                            factory.createElementAccessExpression(
+                                vectorValuesIdentifier,
+                                uniqueIndexName
+                            ),
+                            factory.createToken(ts.SyntaxKind.EqualsToken),
+                            vectorStatement.vectorIdentifier
+                        )
+                    )
+                )
+            }
+            else {
+                valueStatements.push(
+                    factory.createExpressionStatement(
+                        factory.createBinaryExpression(
+                            factory.createElementAccessExpression(
+                                vectorValuesIdentifier,
+                                uniqueIndexName
+                            ),
+                            factory.createToken(ts.SyntaxKind.EqualsToken),
+                            createReadType(valueType) as ts.Expression
+                        )
+                    )
+                );
+            }
+
+            statements.push(
+                factory.createForStatement(
+                    factory.createVariableDeclarationList([
+                        factory.createVariableDeclaration(
+                            uniqueIndexName,
+                            undefined,
+                            undefined,
+                            factory.createNumericLiteral(0)
+                        )
+                    ]),
+                    factory.createBinaryExpression(
+                        uniqueIndexName,
+                        factory.createToken(ts.SyntaxKind.LessThanToken),
+                        lessThanExpression
+                    ),
+                    factory.createPostfixIncrement(
+                        uniqueIndexName
+                    ),
+                    factory.createBlock(valueStatements)
+                )
+            )
+
+            return {
+                statements,
+                vectorIdentifier: vectorValuesIdentifier
+            };
+        }
+        case "custom": {
+            const className: string = typeData.data;
+
+            if (typeof className != "string") {
+                throw new Error(`Something went wrong. Expected className to be type string got '${typeof className}'`);
+            }
+
+            return factory.createCallExpression(
                 factory.createPropertyAccessExpression(
-                    factory.createIdentifier("data"),
+                    factory.createIdentifier(className),
+                    factory.createIdentifier("read")
+                ),
+                undefined,
+                [
+                    factory.createIdentifier("buffer")
+                ]
+            );
+        }
+        default: {
+            const functionName = getReadFunctionName(type);
+
+            if (!functionName) {
+                throw new Error(`Cannot get function name for type ${type}`);
+            }
+
+            return factory.createCallExpression(
+                factory.createPropertyAccessExpression(
+                    factory.createIdentifier("buffer"),
                     factory.createIdentifier(functionName)
                 ),
                 undefined,
                 []
             )
-        )
-    )
-}
-
-// Creates a new array in variableName
-/*
-    const variableName = [];
-*/
-export function createInitialiseArray(variableName: string): ts.VariableStatement {
-    return factory.createVariableStatement(
-        undefined,
-        factory.createVariableDeclarationList(
-            [factory.createVariableDeclaration(
-                factory.createIdentifier(variableName),
-                undefined,
-                undefined,
-                factory.createArrayLiteralExpression(
-                    [],
-                    false
-                )
-            )],
-            ts.NodeFlags.Const
-        )
-    )
-}
-
-// Sets a variable to the result of a function call
-/*
-    variableName = data.functionName();
-*/
-export function createReadVariable(variableName: string, functionName: string): ts.VariableStatement {
-    return factory.createVariableStatement(
-        undefined,
-        factory.createVariableDeclarationList(
-            [factory.createVariableDeclaration(
-                factory.createIdentifier(variableName),
-                undefined,
-                undefined,
-                factory.createCallExpression(
-                    factory.createPropertyAccessExpression(
-                        factory.createIdentifier("data"),
-                        factory.createIdentifier(functionName)
-                    ),
-                    undefined,
-                    []
-                )
-            )],
-            ts.NodeFlags.Const
-        )
-    )
-}
-
-// Sets a variable to a field value
-/*
-    const variableName = packet.fieldName;
-*/
-export function createVariableFromField(variableName: string, fieldName: string) {
-    return factory.createVariableStatement(
-        undefined,
-        factory.createVariableDeclarationList(
-            [factory.createVariableDeclaration(
-                factory.createIdentifier(variableName),
-                undefined,
-                undefined,
-                factory.createPropertyAccessExpression(
-                    factory.createIdentifier("packet"),
-                    factory.createIdentifier(fieldName)
-                )
-            )],
-            ts.NodeFlags.Const
-        )
-    )
-}
-
-// Creates a for loop that reads data and pushes it to an array
-// ASSUMPTION: listVariable is an array
-// ASSUMPTION: lengthVariable is a number
-/*
-    for(let i = 0; i < lengthVariable; i++) {
-        listVariable.push(data.functionName());
+        }
     }
-*/
-export function createReadForLoop(listVariable: string, functionName: string, lengthVariable: string): ts.ForStatement {
-    return factory.createForStatement(
-        factory.createVariableDeclarationList(
-            [factory.createVariableDeclaration(
-                factory.createIdentifier("i"),
-                undefined,
-                undefined,
-                factory.createNumericLiteral("0")
-            )],
-            ts.NodeFlags.Let
-        ),
-        factory.createBinaryExpression(
-            factory.createIdentifier("i"),
-            factory.createToken(ts.SyntaxKind.LessThanToken),
-            factory.createIdentifier(lengthVariable)
-        ),
-        factory.createPostfixUnaryExpression(
-            factory.createIdentifier("i"),
-            ts.SyntaxKind.PlusPlusToken
-        ),
-        factory.createBlock(
-            [factory.createExpressionStatement(factory.createCallExpression(
-                factory.createPropertyAccessExpression(
-                    factory.createIdentifier(listVariable),
-                    factory.createIdentifier("push")
-                ),
-                undefined,
-                [factory.createCallExpression(
-                    factory.createPropertyAccessExpression(
-                        factory.createIdentifier("data"),
-                        factory.createIdentifier(functionName)
-                    ),
-                    undefined,
-                    []
-                )]
-            ))],
-            true
-        )
-    )
 }
 
-// Sets a packet field to a variable
-/*
-    packet.fieldName = variableName;
-*/
-export function createReadPacketFieldFromVariable(fieldName: string, variableName: string) {
-    return factory.createExpressionStatement(factory.createBinaryExpression(
-        factory.createPropertyAccessExpression(
-            factory.createIdentifier("packet"),
-            factory.createIdentifier(fieldName)
-        ),
-        factory.createToken(ts.SyntaxKind.EqualsToken),
-        factory.createIdentifier(variableName)
-    ))
+export function createReadTypeAssignment(property: Property): ts.Statement[] {
+    const typeData = property.type;
+
+    if (typeData.type == "vector") {
+        const vectorStatement = createReadType(typeData) as VectorStatement;
+
+        return [
+            ...vectorStatement.statements,
+            factory.createExpressionStatement(
+                factory.createBinaryExpression(
+                    factory.createPropertyAccessExpression(
+                        factory.createIdentifier("packet"),
+                        factory.createIdentifier(property.name)
+                    ),
+                    factory.createToken(ts.SyntaxKind.EqualsToken),
+                    vectorStatement.vectorIdentifier
+                )
+            )
+        ];
+    }
+    else {
+        return [
+            factory.createExpressionStatement(
+                factory.createBinaryExpression(
+                    factory.createPropertyAccessExpression(
+                        factory.createIdentifier("packet"),
+                        factory.createIdentifier(property.name)
+                    ),
+                    factory.createToken(ts.SyntaxKind.EqualsToken),
+                    createReadType(typeData) as ts.Expression
+                )
+            )
+        ];
+    }
 }
 
 // Generates a read function
@@ -175,36 +281,42 @@ export function createReadPacketFieldFromVariable(fieldName: string, variableNam
 export function createReadFunction(className: string, expressions: ts.Statement[]): ts.MethodDeclaration {
     return factory.createMethodDeclaration(
         undefined,
-        [factory.createModifier(ts.SyntaxKind.StaticKeyword)],
+        [
+            factory.createModifier(ts.SyntaxKind.StaticKeyword)
+        ],
         undefined,
         factory.createIdentifier("read"),
         undefined,
         undefined,
-        [factory.createParameterDeclaration(
-            undefined,
-            undefined,
-            undefined,
-            factory.createIdentifier("data"),
-            undefined,
-            factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
-            undefined
-        )],
+        [
+            factory.createParameterDeclaration(
+                undefined,
+                undefined,
+                undefined,
+                factory.createIdentifier("buffer"),
+                undefined,
+                factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+                undefined
+            )
+        ],
         undefined,
         factory.createBlock(
             [
                 factory.createVariableStatement(
                     undefined,
                     factory.createVariableDeclarationList(
-                        [factory.createVariableDeclaration(
-                            factory.createIdentifier("packet"),
-                            undefined,
-                            undefined,
-                            factory.createNewExpression(
-                                factory.createIdentifier(className),
+                        [
+                            factory.createVariableDeclaration(
+                                factory.createIdentifier("packet"),
                                 undefined,
-                                []
+                                undefined,
+                                factory.createNewExpression(
+                                    factory.createIdentifier(className),
+                                    undefined,
+                                    []
+                                )
                             )
-                        )],
+                        ],
                         ts.NodeFlags.Const
                     )
                 ),
