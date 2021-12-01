@@ -148,7 +148,21 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
                     classData.className = identifier.escapedText.toString();
                 }
             }
-            else if (ts.isPropertyDeclaration(node)) {
+            else if(ts.isHeritageClause(node)) {
+                const heritageClause = node as ts.HeritageClause;
+                const heritageExpressions = heritageClause.types;
+                for(const type of heritageExpressions) {
+                    if(ts.isIdentifier(type.expression)) {
+                        const identifier = type.expression as ts.Identifier;
+
+                        if(["Packet", "DataStructure"].includes(identifier.escapedText.toString())) {
+                            classData.correctHeritage = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            else if (classData.correctHeritage && ts.isPropertyDeclaration(node)) {
                 const nameNode = <ts.Identifier>node.name;
                 const name = nameNode.escapedText.toString();
                 const typeNode = node.type;
@@ -180,11 +194,16 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
 
                     const classData: ClassData = {
                         className: "",
-                        properties: []
+                        properties: [],
+                        correctHeritage: false
                     };
 
                     ts.visitEachChild(node, classVisitor.bind(this, classData), context);
 
+                    if(!classData.correctHeritage) {
+                        return node;
+                    }
+                    
                     // Generate expressions for functions
 
                     const readStatements: ts.Statement[] = classData.properties

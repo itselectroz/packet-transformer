@@ -36,6 +36,7 @@ export type Property = {
 export type ClassData = {
     className: string;
     properties: Property[];
+    correctHeritage: boolean;
 }
 
 
