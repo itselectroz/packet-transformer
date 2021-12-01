@@ -26,6 +26,16 @@ export class Packet {
     }
 }
 
+export class DataStructure {
+    static read(data: Buffer) : DataStructure {
+        return new DataStructure();
+    }
+
+    write(data: Buffer) : void {
+        
+    }
+}
+
 export const PACKET_ID_MAP: {
     [id: number]: typeof Packet
 } = {};
