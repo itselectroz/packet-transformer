@@ -5,7 +5,7 @@
         "outDir": "dist", /* Specify an output folder for all emitted files. */
         "plugins": [
             {
-                "transform": "../dist/index.js",
+                "transform": "../src/index.ts",
                 "type": "raw"
             }
         ],
