@@ -187,9 +187,26 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
             return node;
         }
 
+        let skipNextNode = false;
         const rootNodeVisitor = (node: ts.Node): ts.Node => {
+            if(skipNextNode) {
+                skipNextNode = false;
+                return node;
+            }
+
             logNode(node, 'root');
             switch (node.kind) {
+                case ts.SyntaxKind.ExpressionStatement:
+                    const expressionStatement = node as ts.ExpressionStatement;
+                    const expression = expressionStatement.expression;
+                    if(!ts.isStringLiteral(expression)) {
+                        break;
+                    }
+                    const stringLiteral = expression as ts.StringLiteral;
+                    if(stringLiteral.text == "ignore_packet") {
+                        skipNextNode = true;
+                    }
+                    break;
                 case ts.SyntaxKind.ClassDeclaration:
 
                     const classData: ClassData = {
