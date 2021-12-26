@@ -163,7 +163,15 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
                 }
             }
             else if (classData.correctHeritage && ts.isPropertyDeclaration(node)) {
-                const nameNode = <ts.Identifier>node.name;
+                const declaration = node as ts.PropertyDeclaration;
+                if(!!declaration.modifiers) {
+                    for(const modifier of declaration.modifiers) {
+                        if(modifier.kind == ts.SyntaxKind.StaticKeyword) {
+                            return node;
+                        }
+                    }
+                }
+                const nameNode = <ts.Identifier>declaration.name;
                 const name = nameNode.escapedText.toString();
                 const typeNode = node.type;
 
