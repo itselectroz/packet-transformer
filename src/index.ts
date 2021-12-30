@@ -121,6 +121,28 @@ export function handleTypeNode(typeNode: ts.TypeNode): TypeData | false {
                     data: (customType.typeName as ts.Identifier).escapedText
                 };
             }
+            else if (type == "nbits") {
+                const typeArguments = typeReferenceNode.typeArguments;
+                if (!typeArguments || typeArguments.length != 1) {
+                    throw SyntaxError(`Not enough arguments for nbits type. Expected 1 got ${typeArguments?.length || 0}`);
+                }
+
+                const typeArgument = typeArguments[0];
+
+                if (typeArgument.kind != ts.SyntaxKind.LiteralType) {
+                    throw SyntaxError(`Expected LiteralType in nbits type. Got ${typeArgument.kind}`);
+                }
+
+                const literal = (typeArgument as ts.LiteralTypeNode).literal;
+                if(literal.kind != ts.SyntaxKind.NumericLiteral) {
+                    throw SyntaxError(`Expected NumericLiteral in nbits type. Got ${typeArgument.kind}`);
+                }
+
+                return {
+                    type,
+                    data: Number.parseInt((literal as ts.NumericLiteral).text)
+                };
+            }
             else {
                 return {
                     type

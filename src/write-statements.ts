@@ -183,6 +183,30 @@ export function createWriteStatement(typeData: TypeData, expression: ts.Expressi
             ];
         }
 
+        case "nbits": {
+            const numBits: number = typeData.data;
+
+            if(typeof numBits != "number") {
+                throw new Error(`Something went wrong. Expected className to be type 'number' got '${typeof numBits}'`);
+            }
+
+            return [
+                factory.createExpressionStatement(
+                    factory.createCallExpression(
+                        factory.createPropertyAccessExpression(
+                            factory.createIdentifier("buffer"),
+                            factory.createIdentifier("writeBits")
+                        ),
+                        undefined,
+                        [
+                            factory.createNumericLiteral(numBits),
+                            expression
+                        ]
+                    )
+                )
+            ];
+        }
+
         default: {
             const functionName = getWriteFunctionName(type);
 

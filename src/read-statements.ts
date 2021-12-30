@@ -199,7 +199,7 @@ const createReadType = (typeData: TypeData): ts.Expression | VectorStatement => 
             const className: string = typeData.data;
 
             if (typeof className != "string") {
-                throw new Error(`Something went wrong. Expected className to be type string got '${typeof className}'`);
+                throw new Error(`Something went wrong. Expected className to be type 'string' got '${typeof className}'`);
             }
 
             return factory.createCallExpression(
@@ -210,6 +210,24 @@ const createReadType = (typeData: TypeData): ts.Expression | VectorStatement => 
                 undefined,
                 [
                     factory.createIdentifier("buffer")
+                ]
+            );
+        }
+        case "nbits": {
+            const numBits: number = typeData.data;
+
+            if(typeof numBits != "number") {
+                throw new Error(`Something went wrong. Expected className to be type 'number' got '${typeof numBits}'`);
+            }
+
+            return factory.createCallExpression(
+                factory.createPropertyAccessExpression(
+                    factory.createIdentifier("buffer"),
+                    factory.createIdentifier("readBits")
+                ),
+                undefined,
+                [
+                    factory.createNumericLiteral(numBits)
                 ]
             );
         }
