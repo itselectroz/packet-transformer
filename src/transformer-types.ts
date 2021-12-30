@@ -61,3 +61,4 @@ export type cuint3 = number;
 
 export type nbits<type> = number;
 export type vector<type, _lengthType> = type[];
+export type custom<type> = type;
