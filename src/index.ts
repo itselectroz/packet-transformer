@@ -4,6 +4,8 @@ import { logNode } from './transformer-logger';
 import { ClassData, Constant, Property, TypeData, VectorData } from './transformer-types';
 import { createWriteFunction, createWriteStatement } from './write-statements';
 
+export * from './defined-transformer-types'
+
 const factory = ts.factory;
 
 let lastUniqueIndex = 0;
