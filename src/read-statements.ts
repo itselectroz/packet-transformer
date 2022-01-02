@@ -10,6 +10,8 @@ export function getReadFunctionName(type: string): string | false {
     switch (type) {
         case "string":
             return "readUTFString";
+        case "byte":
+            return "readByte";
         case "int16":
             return "readInt16";
         case "uint16":

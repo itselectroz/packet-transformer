@@ -1,3 +1,5 @@
+export type byte = number;
+
 export type int16 = number;
 export type uint16 = number;
 

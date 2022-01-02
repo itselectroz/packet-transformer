@@ -10,6 +10,8 @@ function getWriteFunctionName(type: string): string | false {
     switch (type) {
         case "string":
             return "writeUTFString";
+        case "byte":
+            return "writeByte";
         case "int16":
             return "writeInt16";
         case "uint16":
