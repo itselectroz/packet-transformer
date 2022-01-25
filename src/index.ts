@@ -1,10 +1,12 @@
 import * as ts from 'typescript';
 import { createReadTypeAssignment, createReadFunction } from './read-statements';
+import { createSizeExpression, createSizeFunction } from './size-statements';
 import { logNode } from './transformer-logger';
 import { ClassData, Constant, Property, TypeData, VectorData } from './transformer-types';
 import { createWriteFunction, createWriteStatement } from './write-statements';
 
-export * from './defined-transformer-types'
+export * from './defined-transformer-types';
+export * from './packet';
 
 const factory = ts.factory;
 
@@ -161,6 +163,8 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
             return sourceFile;
         }
 
+        let modified = false;
+
         // Visit class declaration. We're looking for field declarations
         const classVisitor = (classData: ClassData, node: ts.Node): ts.Node => {
             logNode(node, 'class');
@@ -273,14 +277,33 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (context: ts.Transform
                             ],
                             []
                         );
+                    
+                    const sizeExpression = classData.properties
+                        .reduce(
+                            (a: ts.Expression | undefined, b: Property) => {
+                                const bSize = createSizeExpression(b.type, factory.createPropertyAccessExpression(
+                                    factory.createThis(),
+                                    b.name
+                                )) || factory.createNumericLiteral(0);
+                                if(!!a) {
+                                    return factory.createAdd(a, bSize);
+                                }
+                                return bSize;
+                            },
+                            undefined
+                        ) || factory.createNumericLiteral(0);
 
                     // Generate read/write functions
 
                     const readFunction = createReadFunction(classData.className, readStatements);
                     const writeFunction = createWriteFunction(writeStatements);
+                    const sizeFunction = createSizeFunction(sizeExpression);
 
                     const classDeclaration = <ts.ClassDeclaration>node;
-                    return ts.factory.updateClassDeclaration(classDeclaration, classDeclaration.decorators, classDeclaration.modifiers, classDeclaration.name, classDeclaration.typeParameters, classDeclaration.heritageClauses, [...classDeclaration.members, readFunction, writeFunction]);
+                    
+                    modified = true;
+
+                    return ts.factory.updateClassDeclaration(classDeclaration, classDeclaration.decorators, classDeclaration.modifiers, classDeclaration.name, classDeclaration.typeParameters, classDeclaration.heritageClauses, [...classDeclaration.members, readFunction, writeFunction, sizeFunction]);
             }
 
             return node;

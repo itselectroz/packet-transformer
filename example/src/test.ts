@@ -1,4 +1,4 @@
-import { Packet } from "./packet";
+import { Packet } from "../../";
 import { HelloPacket } from "./packets/hello-packet";
 
 const helloPacket = new HelloPacket();
