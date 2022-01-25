@@ -24,6 +24,11 @@ export class BaseDataStructure {
 
 export class Packet extends BaseDataStructure {
     static ID: number = -1;
+    get id() {
+        return (this.constructor as any).ID;
+    }
+
+    send: boolean = true;
 
     static read(data: Buffer) : any {
         return new Packet();
