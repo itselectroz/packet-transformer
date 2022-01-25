@@ -13,11 +13,11 @@ export class BaseDataStructure {
         return bytes > 0 ? bytes : 1;
     }
 
-    write(data: Buffer) : void {
+    write(data: any) : void {
 
     }
 
-    static read(data: Buffer) : any {
+    static read(data: any) : any {
         return new BaseDataStructure();
     }
 }
@@ -30,13 +30,13 @@ export class Packet extends BaseDataStructure {
 
     send: boolean = true;
 
-    static read(data: Buffer) : any {
+    static read(data: any) : any {
         return new Packet();
     }
 }
 
 export class DataStructure extends BaseDataStructure {
-    static read(data: Buffer) : any {
+    static read(data: any) : any {
         return new DataStructure();
     }
 }
