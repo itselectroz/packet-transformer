@@ -30,6 +30,8 @@ export class Packet extends BaseDataStructure {
 
     send: boolean = true;
 
+    extraData?: number;
+
     static read(data: any) : any {
         return new Packet();
     }

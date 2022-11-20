@@ -196,7 +196,7 @@ export function createSizeFunction(expression: ts.Expression) {
         [],
         undefined,
         factory.createBlock(
-            [factory.createExpressionStatement(expression)],
+            [factory.createReturnStatement(expression)],
             false
         )
     );
