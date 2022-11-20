@@ -5,10 +5,11 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "ttsc -p example/tsconfig.json && echo Go look at example/dist/packets/hello-packet.js to validate transformer did its job"
+    "test": "ttsc -p example/tsconfig.json && echo Go look at example/dist/packets/hello-packet.js to validate transformer did its job",
+    "prepublish": "npm run build"
   },
-  "author": "electroz",
-  "license": "GPLv3",
+  "author": "Harry Whittle",
+  "license": "GPL-3.0",
   "devDependencies": {
     "@types/node": "^16.11.10",
     "ttypescript": "^1.5.13",

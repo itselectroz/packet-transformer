@@ -1,5 +1,7 @@
 export type byte = number;
 
+export type float = number;
+
 export type int16 = number;
 export type uint16 = number;
 
@@ -13,5 +15,5 @@ export type cint3 = number;
 export type cuint3 = number;
 
 export type nbits<type> = number;
-export type vector<type, _lengthType> = type[];
+export type vector<type, lengthType> = type[];
 export type custom<type> = type;
